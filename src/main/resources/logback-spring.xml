@@ -1,5 +1,5 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/base.xml"/>
-    <logger name="com.migmig.applicationsstatisticalinformation" level="DEBUG"/>
+    <logger name="com.appstats.appstatisticsinfo" level="DEBUG"/>
     <logger name="org.springframework" level="INFO"/>
 </configuration>
