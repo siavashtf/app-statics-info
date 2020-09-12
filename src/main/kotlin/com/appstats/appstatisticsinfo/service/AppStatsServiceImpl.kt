@@ -28,9 +28,19 @@ class AppStatsServiceImpl(private val appStatisticsRepository: AppStatisticsRepo
         logger.info("=================> service: getStats called <=================")
 
         val stats = getAppStatisticsModelList(startDate, endDate, type)
-        val sortedStats: List<AppStatisticsModel>
         if (stats != null && stats.isNotEmpty()) {
-            sortedStats = sortBasedOnYearAndWeekNum(stats)
+            val categorizedStatsByYear = groupStatsByYear(stats.toMutableList())
+            logger.info("=================> service: stats have been categorized by the year number <=================")
+
+            val categorizedAccumulativeStats: MutableList<AppStatisticsModel> = ArrayList()
+            for (statsInYear in categorizedStatsByYear.values) {
+                logger.info("=================> service: categorizing stats of year: ${categorizedStatsByYear.filterValues { it == statsInYear }.keys}<=================")
+                categorizedAccumulativeStats.addAll(groupStatsByWeekNumAndAccumulativeInfo(statsInYear.toMutableList()).values)
+            }
+            logger.info("=================> service: categorized accumulated stats are going to be sorted... <=================")
+
+            val sortedStats = sortBasedOnYearAndWeekNum(categorizedAccumulativeStats)
+
             logger.info("=================> service: instantiating response object with sorted list... <=================")
 
             return AppStatisticsListResponse(sortedStats)
@@ -41,12 +51,38 @@ class AppStatsServiceImpl(private val appStatisticsRepository: AppStatisticsRepo
     }
 
     /**
+     * This method will group the model list by the week number, and will accumulate the information of each week
+     * @param: a model list
+     * @return: grouped model list
+     */
+    private fun groupStatsByWeekNumAndAccumulativeInfo(sortedList: MutableList<AppStatisticsModel>): Map<Int, AppStatisticsModel> {
+        logger.info("=================> service: grouping each year stats by week number, and accumulating each week info... <=================")
+        return sortedList.groupingBy(AppStatisticsModel::weekNum).fold(AppStatisticsModel(0, 0, 0, 0, 0),
+                { acc, elem ->
+                    AppStatisticsModel(elem.weekNum, elem.year,
+                            acc.requests + elem.requests,
+                            acc.clicks + elem.clicks,
+                            acc.installs + elem.installs)
+                })
+    }
+
+    /**
+     * This method will group the model list by the year number
+     * @param: a model list
+     * @return: grouped model list
+     */
+    private fun groupStatsByYear(stats: MutableList<AppStatisticsModel>): Map<Int, List<AppStatisticsModel>> {
+        logger.info("=================> service: grouping model list by year number... <=================")
+        return stats.groupBy { it.year }
+    }
+
+    /**
      * This method will sort the mapped models list based on their year and weekNum
      * @param: The list which is going to be sorted
      * @return: The sorted list
      */
     private fun sortBasedOnYearAndWeekNum(stats: MutableList<AppStatisticsModel>): List<AppStatisticsModel> {
-        logger.info("=================> service: sorting models list... <=================")
+        logger.info("=================> service: sorting categorized model list... <=================")
 
         //*** Sorting models list based on their year and then their week number
         return stats.sortedWith(compareBy<AppStatisticsModel> { it.year }.thenBy { it.weekNum })
